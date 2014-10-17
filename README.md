@@ -2,10 +2,10 @@
 nginx kafka module
 ------------------
 
-Q: What does this module do ?
+Q: What does this module do ?  
 A: send post data to kafka
 
-Q: How to install
+Q: How to install  
 A: firstly, install librdkafka: https://github.com/edenhill/librdkafka
 
     git clone https://github.com/edenhill/librdkafka
