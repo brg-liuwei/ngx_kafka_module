@@ -176,10 +176,9 @@ void *ngx_http_kafka_create_main_conf(ngx_conf_t *cf)
     conf->rk = NULL;
     conf->rkc = NULL;
 
-    /* alloc memory for brokers array */
     conf->broker_size = 0;
     conf->nbrokers = 0;
-    conf->brokers = (ngx_str_t *)ngx_pcalloc(cf->pool, conf->broker_size * sizeof(ngx_str_t));
+    conf->brokers = NULL;
 
     return conf;
 }
