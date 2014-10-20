@@ -5,7 +5,7 @@ nginx kafka module
 Q: What does this module do ?  
 A: send post data to kafka
 
-Q: How to install  
+Q: How to install ?  
 A: firstly, install librdkafka: https://github.com/edenhill/librdkafka
 
     git clone https://github.com/edenhill/librdkafka
@@ -25,15 +25,34 @@ A: firstly, install librdkafka: https://github.com/edenhill/librdkafka
 
    thirdly, add the code to nginx conf file as follows
 
-    location = /your/path/ {
+    http {
+
+        # some other configs
+
         kafka;
-        kafka_topic your_topic;
-        kafka_broker your_broker_addr;   # eg: localhost:9092
+
+        server {
+
+            # some other configs
+
+            location = /your/path/topic0/ {
+                kafka;
+                kafka_topic your_topic0;
+                kafka_broker your_broker_addr0;   # eg: localhost:9092
+            }
+
+            location = /your/path/topic1/ {
+                kafka;
+                kafka_topic your_topic1;
+                kafka_broker your_broker_addr1;   # eg: localhost:9092
+            }
+        }
     }
 
    then, reload your nginx
 
    test:
 
-       curl localhost/your/path/ -d "message send to kafka"
+       curl localhost/your/path/topic0/ -d "message send to kafka topic0"
+       curl localhost/your/path/topic1/ -d "message send to kafka topic1"
 
