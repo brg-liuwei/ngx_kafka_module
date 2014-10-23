@@ -344,8 +344,6 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
     rd_kafka_produce(local_conf->rkt, RD_KAFKA_PARTITION_UA, 
             RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, r->connection->log);
 
-    rd_kafka_poll(main_conf->rk, 0);
-
 end:
 
     buf = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
@@ -361,6 +359,9 @@ end:
     r->headers_out.content_length_n = sizeof(rc) - 1;
     ngx_http_send_header(r);
     ngx_http_output_filter(r, &out);
+    ngx_http_finalize_request(r, NGX_OK);
+
+    rd_kafka_poll(main_conf->rk, 0);
 }
 
 ngx_int_t ngx_http_kafka_init_worker(ngx_cycle_t *cycle)
