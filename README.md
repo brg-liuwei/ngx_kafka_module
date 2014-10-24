@@ -36,13 +36,11 @@ A: firstly, install librdkafka: https://github.com/edenhill/librdkafka
             # some other configs
 
             location = /your/path/topic0/ {
-                kafka;
                 kafka_topic your_topic0;
                 kafka_broker your_broker_addr0;   # eg: localhost:9092
             }
 
             location = /your/path/topic1/ {
-                kafka;
                 kafka_topic your_topic1;
                 kafka_broker your_broker_addr1;   # eg: localhost:9092
             }
