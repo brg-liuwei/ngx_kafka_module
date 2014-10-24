@@ -159,7 +159,8 @@ void ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
     }
     cf->brokers[n].len = broker->len;
 
-    ngx_copy(cf->brokers[n].data, broker->data, broker->len);
+    //ngx_copy(cf->brokers[n].data, broker->data, broker->len);
+    memcpy(cf->brokers[n].data, broker->data, broker->len);
     cf->brokers[n].data[broker->len] = '\0';
     cf->nbrokers++;
 }
@@ -281,7 +282,7 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
     ngx_chain_t                  out;
     ngx_chain_t                 *cl, *in;
     ngx_http_request_body_t     *body;
-    ngx_http_kafka_main_conf_t  *main_conf;
+    ngx_http_kafka_main_conf_t  *main_conf = NULL;
     ngx_http_kafka_loc_conf_t   *local_conf;
 
     /* get body */
