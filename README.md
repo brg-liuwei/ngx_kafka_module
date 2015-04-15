@@ -18,7 +18,7 @@ A: firstly, install librdkafka: https://github.com/edenhill/librdkafka
 
     git clone https://github.com/brg-liuwei/ngx_http_kafka_module
     # cd /path/to/nginx
-    ./configure --add-module=/path/to/ngx_http_kafka_module
+    ./configure --add-module=/path/to/ngx_kafka_module
     make
     sudo make install
     # or, use `sudo make upgrade` instead of `sudo make install`

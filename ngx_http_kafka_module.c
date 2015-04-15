@@ -45,11 +45,13 @@ static void ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
         ngx_str_t *broker, ngx_pool_t *pool);
 
 typedef struct {
-    ngx_str_t topic;   /* kafka topic */
-    ngx_str_t broker;  /* broker addr (eg: localhost:9092) */
+    ngx_log_t  *log;
+    ngx_str_t   topic;    /* kafka topic */
+    ngx_str_t   broker;   /* broker addr (eg: localhost:9092) */
 
     rd_kafka_topic_t       *rkt;
     rd_kafka_topic_conf_t  *rktc;
+
 } ngx_http_kafka_loc_conf_t;
 
 static ngx_command_t ngx_http_kafka_commands[] = {
@@ -191,8 +193,10 @@ void *ngx_http_kafka_create_loc_conf(ngx_conf_t *cf)
     if (conf == NULL) {
         return NGX_CONF_ERROR;
     }
+    conf->log = cf->log;
     ngx_str_null(&conf->topic);
     ngx_str_null(&conf->broker);
+
     return conf;
 }
 
@@ -308,11 +312,8 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
     }
 
     if (nbufs == 1 && ngx_buf_in_memory(in->buf)) {
-
         msg = in->buf->pos;
-
     } else {
-
         if ((msg = ngx_pnalloc(r->pool, len)) == NULL) {
             ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
             return;
@@ -328,9 +329,7 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
                 goto end;
             }
         }
-
         msg -= len;
-
     }
 
     /* send to kafka */
@@ -343,8 +342,18 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
         ngx_str_helper(&local_conf->topic, ngx_str_pop);
     }
 
+    /*
+     * the last param should NOT be r->connection->log, for reason that
+     * the callback handler ( func: kafka_callback_handler) would be called ASYNC-ly
+     * when some errors being happened. At this time, 
+     * ngx_http_finalize_request may have been invoked, in this case, the object r
+     * had been destroyed but kafka_callback_handler use pointer r->connection->log.
+     * DUANG! Worker process CRASH!
+     *
+     * Thanks for engineers of www.360buy.com report me this bug.
+     * */
     rd_kafka_produce(local_conf->rkt, RD_KAFKA_PARTITION_UA, 
-            RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, r->connection->log);
+            RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, local_conf->log);
 
 end:
 
