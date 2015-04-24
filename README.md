@@ -16,7 +16,7 @@ A: firstly, install librdkafka: https://github.com/edenhill/librdkafka
 
    then, compile this module into nginx
 
-    git clone https://github.com/brg-liuwei/ngx_http_kafka_module
+    git clone https://github.com/brg-liuwei/ngx_kafka_module
     # cd /path/to/nginx
     ./configure --add-module=/path/to/ngx_kafka_module
     make
