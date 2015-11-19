@@ -114,7 +114,7 @@ ngx_module_t ngx_http_kafka_module = {
 
 ngx_int_t ngx_str_equal(ngx_str_t *s1, ngx_str_t *s2)
 {
-    if (s1->len != s1->len) {
+    if (s1->len != s2->len) {
         return 0;
     }
     if (ngx_memcmp(s1->data, s2->data, s1->len) != 0) {
