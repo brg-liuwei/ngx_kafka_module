@@ -19,6 +19,7 @@ static void ngx_http_kafka_exit_worker(ngx_cycle_t *cycle);
 static void *ngx_http_kafka_create_main_conf(ngx_conf_t *cf);
 static void *ngx_http_kafka_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_set_kafka(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_http_set_kafka_topic(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char *ngx_http_set_kafka_broker(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_http_kafka_handler(ngx_http_request_t *r);
@@ -34,15 +35,11 @@ static void ngx_str_helper(ngx_str_t *str, ngx_str_op op);
 typedef struct {
     rd_kafka_t       *rk;
     rd_kafka_conf_t  *rkc;
-
-    size_t         broker_size;
-    size_t         nbrokers;
-    ngx_str_t     *brokers;
-
+    ngx_array_t      *broker_list;
 } ngx_http_kafka_main_conf_t;
 
-static void ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
-        ngx_str_t *broker, ngx_pool_t *pool);
+static char *ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
+        ngx_str_t *broker);
 
 typedef struct {
     ngx_log_t  *log;
@@ -59,6 +56,13 @@ static ngx_command_t ngx_http_kafka_commands[] = {
         ngx_string("kafka"),
         NGX_HTTP_MAIN_CONF|NGX_CONF_NOARGS,
         ngx_http_set_kafka,
+        NGX_HTTP_MAIN_CONF_OFFSET,
+        0,
+        NULL },
+    {
+        ngx_string("kafka_broker_list"),
+        NGX_HTTP_MAIN_CONF|NGX_CONF_1MORE,
+        ngx_http_set_kafka_broker_list,
         NGX_HTTP_MAIN_CONF_OFFSET,
         0,
         NULL },
@@ -84,7 +88,7 @@ static ngx_http_module_t ngx_http_kafka_module_ctx = {
     NULL,      /* post conf */
 
     /* create main conf */
-    ngx_http_kafka_create_main_conf,      
+    ngx_http_kafka_create_main_conf,
     NULL,      /* init main conf */
 
     NULL,      /* create server conf */
@@ -123,47 +127,20 @@ ngx_int_t ngx_str_equal(ngx_str_t *s1, ngx_str_t *s2)
     return 1;
 }
 
-void ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
-        ngx_str_t *broker, ngx_pool_t *pool)
+char *ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
+        ngx_str_t *broker)
 {
-    size_t       n;
-    ngx_str_t   *new_brokers;
+    ngx_str_t   *value, *new_broker;
 
-    for (n = 0; n != cf->nbrokers; ++n) {
-        if (ngx_str_equal(broker, &cf->brokers[n])) {
-            return;
-        }
+    value = cf->broker_list->elts;
+
+    new_broker = ngx_array_push(cf->broker_list);
+    if (new_broker == NULL) {
+        return NGX_CONF_ERROR;
     }
 
-    if (cf->nbrokers == cf->broker_size) {
-        if (cf->broker_size == 0) {
-            cf->broker_size = 2;
-        }
-        new_brokers = ngx_pcalloc(pool, sizeof(ngx_str_t) * (cf->broker_size * 2));
-        if (new_brokers == NULL) {
-            ngx_log_error(NGX_LOG_EMERG, pool->log, 0, "ngx no memory");
-            return;
-        }
-        for (n = 0; n != cf->nbrokers; ++n) {
-            new_brokers[n].len = cf->brokers[n].len;
-            new_brokers[n].data = cf->brokers[n].data;
-        }
-        cf->brokers = new_brokers;
-        cf->broker_size *= 2;
-    }
-
-    n = cf->nbrokers;
-
-    /* 1 more byte for '\0' */
-    cf->brokers[n].data = (u_char *)ngx_pcalloc(pool, sizeof(u_char) * (broker->len) + 1);
-    if (cf->brokers[n].data == NULL) {
-        ngx_log_error(NGX_LOG_EMERG, pool->log, 0, "ngx no memory");
-    }
-    cf->brokers[n].len = broker->len;
-
-    ngx_memcpy(cf->brokers[n].data, broker->data, broker->len);
-    cf->brokers[n].data[broker->len] = '\0';
-    cf->nbrokers++;
+    *new_broker = *broker;
+    return NGX_OK;
 }
 
 void *ngx_http_kafka_create_main_conf(ngx_conf_t *cf)
@@ -177,10 +154,10 @@ void *ngx_http_kafka_create_main_conf(ngx_conf_t *cf)
 
     conf->rk = NULL;
     conf->rkc = NULL;
-
-    conf->broker_size = 0;
-    conf->nbrokers = 0;
-    conf->brokers = NULL;
+    conf->broker_list = ngx_array_create(cf->pool, 4, sizeof(ngx_str_t));
+    if (conf->broker_list == NULL) {
+        return NULL;
+    }
 
     return conf;
 }
@@ -209,8 +186,30 @@ void kafka_callback_handler(rd_kafka_t *rk, void *msg, size_t len, int err, void
 
 char *ngx_http_set_kafka(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-    /* we can add more code here to config ngx_http_kafka_main_conf */
+    /* we can add more code here to config ngx_http_kafka_main_conf_t */
     return NGX_CONF_OK;
+}
+
+char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_uint_t  i;
+    ngx_str_t  *value, *broker;
+
+    ngx_http_kafka_main_conf_t *main_conf;
+    
+    main_conf = conf;
+    value = cf->args->elts;
+
+    for (i = 1; i < cf->args->nelts; ++i) {
+        broker = ngx_array_push(main_conf->broker_list);
+        if (broker == NULL) {
+            return NGX_CONF_ERROR;
+        }
+
+        *broker = value[i];
+    }
+
+    return NGX_OK;
 }
 
 char *ngx_http_set_kafka_topic(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
@@ -253,9 +252,7 @@ char *ngx_http_set_kafka_broker(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     if (main_conf == NULL) {
         return NGX_CONF_ERROR;
     }
-    ngx_http_kafka_main_conf_broker_add(main_conf, &local_conf->broker, cf->pool);
-
-    return NGX_CONF_OK;
+    return ngx_http_kafka_main_conf_broker_add(main_conf, &local_conf->broker);
 }
 
 static ngx_int_t ngx_http_kafka_handler(ngx_http_request_t *r)
@@ -379,20 +376,21 @@ end:
 
 ngx_int_t ngx_http_kafka_init_worker(ngx_cycle_t *cycle)
 {
-    size_t                       n;
+    ngx_uint_t                   n;
+    ngx_str_t                   *broker_list;
     ngx_http_kafka_main_conf_t  *main_conf;
 
     main_conf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_kafka_module);
-
     main_conf->rkc = rd_kafka_conf_new();
     rd_kafka_conf_set_dr_cb(main_conf->rkc, kafka_callback_handler);
-
     main_conf->rk = rd_kafka_new(RD_KAFKA_PRODUCER, main_conf->rkc, NULL, 0);
 
-    for (n = 0; n != main_conf->nbrokers; ++n) {
-        ngx_str_helper(&main_conf->brokers[n], ngx_str_push);
-        rd_kafka_brokers_add(main_conf->rk, (const char *)main_conf->brokers[n].data);
-        ngx_str_helper(&main_conf->brokers[n], ngx_str_pop);
+    broker_list = main_conf->broker_list->elts;
+
+    for (n = 0; n < main_conf->broker_list->nelts; ++n) {
+        ngx_str_helper(&broker_list[n], ngx_str_push);
+        rd_kafka_brokers_add(main_conf->rk, (const char *)broker_list[n].data);
+        ngx_str_helper(&broker_list[n], ngx_str_pop);
     }
 
     return 0;

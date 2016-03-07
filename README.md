@@ -1,29 +1,40 @@
 ------------------
-nginx kafka module
+# nginx kafka module
 ------------------
 
-Q: What does this module do ?  
-A: send post data to kafka
+### Synopsis
 
-Q: How to install ?  
-A: firstly, install librdkafka: https://github.com/edenhill/librdkafka
+This nginx module is used to receive http post data and delivery messages to [kafka](http://kafka.apache.org/)
 
-    git clone https://github.com/edenhill/librdkafka
-    cd librdkafka
-    ./configure
-    make
-    sudo make install
+### Installation
 
-   then, compile this module into nginx
+* Install dependency
 
-    git clone https://github.com/brg-liuwei/ngx_kafka_module
-    # cd /path/to/nginx
-    ./configure --add-module=/path/to/ngx_kafka_module
-    make
-    sudo make install
-    # or, use `sudo make upgrade` instead of `sudo make install`
+    Install [librdkafka](https://github.com/edenhill/librdkafka)
 
-   thirdly, add the code to nginx conf file as follows
+        git clone https://github.com/edenhill/librdkafka
+        cd librdkafka
+        ./configure
+        make
+        sudo make install
+
+* Compilation
+
+    Compile this module into nginx
+
+        git clone https://github.com/brg-liuwei/ngx_kafka_module
+
+        # cd /path/to/nginx
+        ./configure --add-module=/path/to/ngx_kafka_module
+
+        make
+
+        sudo make install
+        # or, use `sudo make upgrade` instead of `sudo make install`
+
+### Config
+
+    add the code to nginx conf file as follows
 
     http {
 
@@ -31,26 +42,28 @@ A: firstly, install librdkafka: https://github.com/edenhill/librdkafka
 
         kafka;
 
+        kafka_broker_list 127.0.0.1:9092 127.0.0.1:9093; # host:port ...
+
         server {
 
             # some other configs
 
             location = /your/path/topic0/ {
                 kafka_topic your_topic0;
-                kafka_broker your_broker_addr0;   # eg: localhost:9092
             }
 
             location = /your/path/topic1/ {
                 kafka_topic your_topic1;
-                kafka_broker your_broker_addr1;   # eg: localhost:9092
             }
         }
     }
 
-   then, reload your nginx
+Reload nginx:
 
-   test:
+    /path/to/nginx -sreload -c /path/to/nginx.conf
 
-       curl localhost/your/path/topic0/ -d "message send to kafka topic0"
-       curl localhost/your/path/topic1/ -d "message send to kafka topic1"
+### Example:
+
+    curl localhost/your/path/topic0/ -d "message send to kafka topic0"
+    curl localhost/your/path/topic1/ -d "message send to kafka topic1"
 
