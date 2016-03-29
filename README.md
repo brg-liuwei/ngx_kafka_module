@@ -8,7 +8,7 @@ This nginx module is used to receive http post data and delivery messages to [ka
 
 ### Installation
 
-* Install dependency
+* Dependency Installation
 
     Install [librdkafka](https://github.com/edenhill/librdkafka)
 
@@ -32,7 +32,7 @@ This nginx module is used to receive http post data and delivery messages to [ka
         sudo make install
         # or, use `sudo make upgrade` instead of `sudo make install`
 
-### Config
+### Nginx Configuration
 
     add the code to nginx conf file as follows
 
@@ -58,9 +58,6 @@ This nginx module is used to receive http post data and delivery messages to [ka
         }
     }
 
-Reload nginx:
-
-    /path/to/nginx -sreload -c /path/to/nginx.conf
 
 ### Example:
 
