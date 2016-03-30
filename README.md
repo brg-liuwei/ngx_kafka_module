@@ -10,7 +10,7 @@ Table of Contents
 * [Installation](#installation)
     * [Dependency Installation](#dependency-installation)
     * [Compilation](#compilation)
-* [Configuration](#configuration)
+* [Nginx Configuration](#nginx-configuration)
 * [Example of Usage](#example-of-usage)
 * [Report Bugs](#report-bugs)
 * [Copyright & License](#copyright--license)
@@ -45,7 +45,9 @@ Compilation
         # or, use `sudo make upgrade` instead of `sudo make install`
 
 [Back to TOC](#table-of-contents)
-### Configuration
+
+Nginx Configuration
+====
 
     add the code to nginx conf file as follows
 
@@ -71,9 +73,6 @@ Compilation
         }
     }
 
-Reload nginx:
-
-    /path/to/nginx -sreload -c /path/to/nginx.conf
 
 [Back to TOC](#table-of-contents)
 
