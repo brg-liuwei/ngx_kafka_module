@@ -1,7 +1,7 @@
 Nginx Kafka Module
 ====
 
-nginx kafka module is used to receive http post data and delivery messages to [kafka](http://kafka.apache.org/)
+Nginx kafka module is used to receive http post data and deliver messages to [kafka](http://kafka.apache.org/)
 
 Table of Contents
 ====
@@ -21,35 +21,35 @@ Installation
 Dependency Installation
 ----
 
-    Install [librdkafka](https://github.com/edenhill/librdkafka)
+Install [librdkafka](https://github.com/edenhill/librdkafka)
 
-        git clone https://github.com/edenhill/librdkafka
-        cd librdkafka
-        ./configure
-        make
-        sudo make install
+    git clone https://github.com/edenhill/librdkafka
+    cd librdkafka
+    ./configure
+    make
+    sudo make install
 
 Compilation
 ----
 
-    Compile this module into nginx
+Compile this module into nginx
 
-        git clone https://github.com/brg-liuwei/ngx_kafka_module
+    git clone https://github.com/brg-liuwei/ngx_kafka_module
 
-        # cd /path/to/nginx
-        ./configure --add-module=/path/to/ngx_kafka_module
+    # cd /path/to/nginx
+    ./configure --add-module=/path/to/ngx_kafka_module
 
-        make
+    make
 
-        sudo make install
-        # or, use `sudo make upgrade` instead of `sudo make install`
+    sudo make install
+    # or, use `sudo make upgrade` instead of `sudo make install`
 
 [Back to TOC](#table-of-contents)
 
 Nginx Configuration
 ====
 
-    add the code to nginx conf file as follows
+Add the code to nginx conf file as follows
 
     http {
 
@@ -63,11 +63,11 @@ Nginx Configuration
 
             # some other configs
 
-            location = /your/path/topic0/ {
+            location = /your/path/topic0 {
                 kafka_topic your_topic0;
             }
 
-            location = /your/path/topic1/ {
+            location = /your/path/topic1 {
                 kafka_topic your_topic1;
             }
         }
@@ -79,8 +79,8 @@ Nginx Configuration
 Example of Usage
 ====
 
-    curl localhost/your/path/topic0/ -d "message send to kafka topic0"
-    curl localhost/your/path/topic1/ -d "message send to kafka topic1"
+    curl localhost/your/path/topic0 -d "message send to kafka topic0"
+    curl localhost/your/path/topic1 -d "message send to kafka topic1"
 
 [Back to TOC](#table-of-contents)
 
