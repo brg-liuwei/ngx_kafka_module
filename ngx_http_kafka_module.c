@@ -193,7 +193,7 @@ char *ngx_http_set_kafka(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_uint_t  i;
-    ngx_str_t  *value, *broker;
+    ngx_str_t  *value;
 
     ngx_http_kafka_main_conf_t *main_conf;
     
@@ -201,12 +201,9 @@ char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *c
     value = cf->args->elts;
 
     for (i = 1; i < cf->args->nelts; ++i) {
-        broker = ngx_array_push(main_conf->broker_list);
-        if (broker == NULL) {
+        if (ngx_http_kafka_main_conf_broker_add(main_conf, &value[i]) == NGX_CONF_ERROR) {
             return NGX_CONF_ERROR;
         }
-
-        *broker = value[i];
     }
 
     return NGX_OK;
