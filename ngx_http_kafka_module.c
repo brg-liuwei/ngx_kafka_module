@@ -194,7 +194,7 @@ char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *c
     ngx_str_t  *value, *broker;
 
     ngx_http_kafka_main_conf_t *main_conf;
-    
+
     main_conf = conf;
     value = cf->args->elts;
 
@@ -420,5 +420,3 @@ void ngx_str_helper(ngx_str_t *str, ngx_str_op op)
             ngx_abort();
     }
 }
-
-
