@@ -8,9 +8,10 @@ Table of Contents
 
 * [Nginx Kafka Module](#nginx-kafka-module)
 * [Installation](#installation)
-    * [Dependency Installation](#dependency-installation)
+    * [Bootstrapping](#bootstrapping)
     * [Compilation](#compilation)
-* [Nginx Configuration](#nginx-configuration)
+* [NGINX Configuration](#nginx-configuration)
+* [Starting and Stopping NGINX](#starting-and-stopping-nginx)
 * [Example of Usage](#example-of-usage)
 * [Report Bugs](#report-bugs)
 * [Copyright & License](#copyright--license)
