@@ -18,69 +18,81 @@ Table of Contents
 Installation
 ====
 
-Dependency Installation
+This module has a Rake-based toolchain to make it easy for you to quickly get
+the module running in an NGINX instance. If you do not have
+[Bundler](http://bundler.io/) installed, get it now with `gem install bundler`.
+Next, inside your clone of the repository do `bundle install`.
+
+At this point, you can see the commands available to you:
+```
+$ rake -T
+rake bootstrap        # Bootstraps the local development environment
+rake bootstrap:clean  # Removes vendor code
+rake nginx:compile    # Recompiles NGINX
+rake nginx:start      # Starts NGINX
+rake nginx:stop       # Stops NGINX
+```
+
+Bootstrapping
 ----
 
-Install [librdkafka](https://github.com/edenhill/librdkafka)
+Doing `rake bootstrap` will download, build, and install NGINX and librdkafka
+for you.
 
-    git clone https://github.com/edenhill/librdkafka
-    cd librdkafka
-    ./configure
-    make
-    sudo make install
+Doing `rake bootstrap:clean` removes source and installs of NGINX and
+librdkafka.
+
+[Back to TOC](#table-of-contents)
 
 Compilation
 ----
 
-Compile this module into nginx
-
-    git clone https://github.com/brg-liuwei/ngx_kafka_module
-
-    # cd /path/to/nginx
-    ./configure --add-module=/path/to/ngx_kafka_module
-
-    make
-
-    sudo make install
-    # or, use `sudo make upgrade` instead of `sudo make install`
+Compile this module into NGINX by doing `rake nginx:compile`.
 
 [Back to TOC](#table-of-contents)
 
-Nginx Configuration
+NGINX Configuration
 ====
 
-Add the code to nginx conf file as follows
-
-    http {
-
-        # some other configs
-
-        kafka;
-
-        kafka_broker_list 127.0.0.1:9092 127.0.0.1:9093; # host:port ...
-
-        server {
-
-            # some other configs
-
-            location = /your/path/topic0 {
-                kafka_topic your_topic0;
-            }
-
-            location = /your/path/topic1 {
-                kafka_topic your_topic1;
-            }
-        }
-    }
-
+The [nginx.conf](nginx.conf) file demonstrates how to configure the module, and
+that file is used in the NGINX that was built in the previous step.
 
 [Back to TOC](#table-of-contents)
+
+Starting and Stopping NGINX
+====
+
+Once it has been built, you can start and stop NGINX with the following
+commands.
+```
+$ rake nginx:start
+$ rake nginx:stop
+```
 
 Example of Usage
 ====
 
-    curl localhost/your/path/topic0 -d "message send to kafka topic0"
-    curl localhost/your/path/topic1 -d "message send to kafka topic1"
+All that's left now to see the module in action is to get Kafka running and
+make POST requests to the server.
+
+Follow the instructions in the [Kafka Quickstart](http://kafka.apache.org/documentation.html#quickstart)
+to get Zookeeper and Kafka running. Then create a topic named "test". Finally,
+you will want to start a consumer so you can see the messages being written to
+the topic. This is also shown in the Kafka Quickstart and looks something like:
+```
+$ kafka-console-consumer --zookeeper localhost:2181 --topic test --from-beginning
+```
+
+At this point, you should have a running NGINX that was built with the Kafka
+module and a running Kafka instance that you are watching. Now it's time to
+make requests!
+
+```
+$ curl localhost:8080/publish -d "it's working"
+```
+
+If all goes as planned, you will see "it's working" printed in the terminal
+that is running the `kafka-console-consumer` command.
 
 [Back to TOC](#table-of-contents)
 
