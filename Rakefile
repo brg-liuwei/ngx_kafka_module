@@ -24,7 +24,7 @@ task :bootstrap do
 end
 
 namespace :bootstrap do
-  desc "Cleans vendor code"
+  desc "Removes vendor code"
   task :clean do
     sh "scripts/bootstrap clean"
   end
