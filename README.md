@@ -19,10 +19,11 @@ Table of Contents
 Installation
 ====
 
-This module has a Rake-based toolchain to make it easy for you to quickly get
-the module running in an NGINX instance. If you do not have
-[Bundler](http://bundler.io/) installed, get it now with `gem install bundler`.
-Next, inside your clone of the repository do `bundle install`.
+This module has a Rake-based toolchain to simplify quickly getting the
+module running in an NGINX instance. If you do not have
+[Bundler](http://bundler.io/) installed, get it now with `gem install
+bundler`.  Next, inside your clone of the repository do `bundle
+install`.
 
 At this point, you can see the commands available to you:
 ```
