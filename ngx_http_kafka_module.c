@@ -130,9 +130,7 @@ ngx_int_t ngx_str_equal(ngx_str_t *s1, ngx_str_t *s2)
 char *ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
         ngx_str_t *broker)
 {
-    ngx_str_t   *value, *new_broker;
-
-    value = cf->broker_list->elts;
+    ngx_str_t   *new_broker;
 
     new_broker = ngx_array_push(cf->broker_list);
     if (new_broker == NULL) {
@@ -196,7 +194,7 @@ char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *c
     ngx_str_t  *value, *broker;
 
     ngx_http_kafka_main_conf_t *main_conf;
-    
+
     main_conf = conf;
     value = cf->args->elts;
 
@@ -422,5 +420,3 @@ void ngx_str_helper(ngx_str_t *str, ngx_str_op op)
             ngx_abort();
     }
 }
-
-
