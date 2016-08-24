@@ -3,6 +3,8 @@ Nginx Kafka Module
 
 Nginx kafka module is used to receive http post data and deliver messages to [kafka](http://kafka.apache.org/)
 
+If there are any problems when using this module, feel free to send a mail to me :)
+
 Table of Contents
 ====
 
