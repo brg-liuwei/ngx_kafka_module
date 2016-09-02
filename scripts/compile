@@ -1,0 +1,19 @@
+#!/bin/bash
+
+SCRIPTDIR=$(pwd)/scripts
+echo $SCRIPTDIR/vars
+. $SCRIPTDIR/vars
+
+pushd "vendor"
+pushd "nginx-$NGINX_VERSION"
+CFLAGS="-g -O0" ./configure           \
+    --with-debug                      \
+    --prefix=$(pwd)/../../build/nginx \
+    --conf-path=conf/nginx.conf       \
+    --error-log-path=logs/error.log   \
+    --http-log-path=logs/access.log   \
+    --add-module=../../
+make -j4
+make install
+popd
+popd
