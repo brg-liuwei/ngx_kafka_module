@@ -1,7 +1,7 @@
 Nginx Kafka Module
 ====
 
-[![Build Status](https://travis-ci.org/brg-liuwei/ngx_kafka_module.svg?branch=develop)](https://travis-ci.org/brg-liuwei/ngx_kafka_module)
+[![Build Status](https://travis-ci.org/brg-liuwei/ngx_kafka_module.svg?branch=master)](https://travis-ci.org/brg-liuwei/ngx_kafka_module)
 
 Nginx kafka module is used to receive http post data and deliver messages to [kafka](http://kafka.apache.org/)
 
