@@ -9,11 +9,6 @@ compiler:
   - gcc
   - clang
 
-addons:
-  apt:
-    packages:
-      - cpanminus
-
 cache:
   apt: true
   directories:
@@ -34,6 +29,9 @@ env:
     - LIBRDKAFKA_LIB=$LIBRDKAFKA_PREFIX/lib
     - KAFKA_VERSION=0.10.0.1
     - SCALA_VERSION=2.11
+
+before_install:
+  - sudo apt-get install -qq -y cpanminus
 
 install:
   - if [ ! -d /opt ]; then mkdir /opt; fi
@@ -78,7 +76,8 @@ script:
   - ldd `which nginx`
   - prove t/001-get.t
   - bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic ngx-kafka-test-topic --max-messages 1 > messages &
+  - sleep 3
   - prove t/002-post.t
   - sleep 1
-  - sh t/travis-ci-test-message.bash
+  - t/travis-ci-test-message.bash
 
