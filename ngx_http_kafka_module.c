@@ -268,13 +268,9 @@ static ngx_int_t ngx_http_kafka_handler(ngx_http_request_t *r)
 
 static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
 {
-    static const char rc[] = "ngx_http_kafka_module ok\n";
-
     int                          nbufs;
     u_char                      *msg;
     size_t                       len;
-    ngx_buf_t                   *buf;
-    ngx_chain_t                  out;
     ngx_chain_t                 *cl, *in;
     ngx_http_request_body_t     *body;
     ngx_http_kafka_main_conf_t  *main_conf;
@@ -349,19 +345,8 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
 
 end:
 
-    buf = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
-    out.buf = buf;
-    out.next = NULL;
-    buf->pos = (u_char *)rc;
-    buf->last = (u_char *)rc + sizeof(rc) - 1;
-    buf->memory = 1;
-    buf->last_buf = 1;
-
-    ngx_str_set(&(r->headers_out.content_type), "text/html");
-    r->headers_out.status = NGX_HTTP_OK;
-    r->headers_out.content_length_n = sizeof(rc) - 1;
+    r->headers_out.status = NGX_HTTP_NO_CONTENT;
     ngx_http_send_header(r);
-    ngx_http_output_filter(r, &out);
     ngx_http_finalize_request(r, NGX_OK);
 
     if (main_conf != NULL) {

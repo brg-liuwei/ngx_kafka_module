@@ -1,0 +1,80 @@
+sudo: required
+dist: trusty
+
+os: linux
+
+language: c
+
+compiler:
+  - gcc
+  - clang
+
+cache:
+  apt: true
+  directories:
+    - download-cache
+
+env:
+  global:
+    - JOBS=4
+    - NGINX_VERSION=1.10.1
+    - NGINX_PREFIX=/opt/nginx
+    - OPENSSL_PREFIX=/opt/ssl
+    - OPENSSL_LIB=$OPENSSL_PREFIX/lib
+    - OPENSSL_INC=$OPENSSL_PREFIX/include
+    - OPENSSL_VER=1.0.2h
+    - LIBRDKAFKA_PREFIX=/opt/librdkafka
+    - LIBRDKAFKA_INC=$LIBRDKAFKA_PREFIX/include
+    - LIBRDKAFKA_LIB=$LIBRDKAFKA_PREFIX/lib
+    - KAFKA_VERSION=0.10.0.1
+    - SCALA_VERSION=2.11
+
+before_install:
+  - sudo apt-get install -qq -y cpanminus
+
+install:
+  - if [ ! -d /opt ]; then mkdir /opt; fi
+  - if [ ! -d download-cache ]; then mkdir download-cache; fi
+  - if [ ! -d download-cache/librdkafka ]; then git clone -b 0.9.0 https://github.com/edenhill/librdkafka.git download-cache/librdkafka; fi
+  - if [ ! -f download-cache/nginx-$NGINX_VERSION.tar.gz ]; then wget -O download-cache/nginx-$NGINX_VERSION.tar.gz http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz; fi
+  - if [ ! -f download-cache/openssl-$OPENSSL_VER.tar.gz ]; then wget -O download-cache/openssl-$OPENSSL_VER.tar.gz https://www.openssl.org/source/openssl-$OPENSSL_VER.tar.gz; fi
+  - if [ ! -f download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz ]; then wget -O download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz http://www-us.apache.org/dist/kafka/$KAFKA_VERSION/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz; fi
+  - git clone https://github.com/openresty/test-nginx.git
+
+script:
+  - cd test-nginx/ && sudo cpanm . && cd ..
+  - tar zxf download-cache/openssl-$OPENSSL_VER.tar.gz
+  - cd openssl-$OPENSSL_VER/
+  - ./config shared --prefix=$OPENSSL_PREFIX -DPURIFY > build.log 2>&1 || (cat build.log && exit 1)
+  - make -j$JOBS > build.log 2>&1 || (cat build.log && exit 1)
+  - sudo make PATH=$PATH install_sw > build.log 2>&1 || (cat build.log && exit 1)
+  - cd ..
+  - cd download-cache/librdkafka/
+  - ./configure --prefix=$LIBRDKAFKA_PREFIX --CFLAGS=-I$OPENSSL_INC > build.log 2>&1 || (cat build.log && exit 1)
+  - make -j$JOBS > build.log 2>&1 || (cat build.log && exit 1)
+  - sudo make install > build.log 2>&1 || (cat build.log && exit 1)
+  - cd ../..
+  - tar zxf download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz
+  - cd kafka_$SCALA_VERSION-$KAFKA_VERSION
+  - bin/zookeeper-server-start.sh config/zookeeper.properties > zk.log 2>&1 &
+  - sleep 3
+  - bin/kafka-server-start.sh config/server.properties > kafka.log 2>&1 &
+  - sleep 3
+  - bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic ngx-kafka-test-topic > create_topic.log 2>&1 || (cat cat zk.log && cat kafka.log && create_topic.log && exit 1)
+  - bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic ngx-kafka-test-topic --max-messages 1 > ../messages &
+  - cd ..
+  - tar zxf download-cache/nginx-$NGINX_VERSION.tar.gz
+  - cd nginx-$NGINX_VERSION/
+  - ./configure --prefix=$NGINX_PREFIX --with-cc-opt="-I$LIBRDKAFKA_INC" --with-ld-opt="-L$LIBRDKAFKA_LIB" --add-module=$PWD/.. > build.log 2>&1 || (cat build.log && exit 1)
+  - make -j$JOBS > build.log 2>&1 || (cat build.log && exit 1)
+  - sudo make install > build.log 2>&1 || (cat build.log && exit 1)
+  - cd ..
+  - export PATH=$NGINX_PREFIX/sbin:$PATH
+  - export LD_LIBRARY_PATH=$LIBRDKAFKA_LIB:$LD_LIBRARY_PATH
+  - nginx -V
+  - ldd `which nginx`
+  - prove t/001-get.t
+  - prove t/002-post.t
+  - sleep 1
+  - t/travis-ci-test-message.bash
+
