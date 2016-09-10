@@ -62,7 +62,8 @@ script:
   - sleep 3
   - bin/kafka-server-start.sh config/server.properties > kafka.log 2>&1 &
   - sleep 3
-  - bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic ngx-kafka-test-topic > create_topic.log 2>&1 || (cat create_topic.log && exit 1)
+  - bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic ngx-kafka-test-topic > create_topic.log 2>&1 || (cat cat zk.log && cat kafka.log && create_topic.log && exit 1)
+  - bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic ngx-kafka-test-topic --max-messages 1 > messages &
   - cd ..
   - tar zxf download-cache/nginx-$NGINX_VERSION.tar.gz
   - cd nginx-$NGINX_VERSION/
@@ -75,8 +76,6 @@ script:
   - nginx -V
   - ldd `which nginx`
   - prove t/001-get.t
-  - bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic ngx-kafka-test-topic --max-messages 1 > messages &
-  - sleep 3
   - prove t/002-post.t
   - sleep 1
   - t/travis-ci-test-message.bash
