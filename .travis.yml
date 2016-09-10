@@ -17,7 +17,6 @@ cache:
 env:
   global:
     - JOBS=4
-    - NGX_KAFKA_MODULE_PATH=/opt/ngx_kafka_module
     - NGINX_VERSION=1.10.1
     - NGINX_PREFIX=/opt/nginx
     - OPENSSL_PREFIX=/opt/ssl
@@ -40,7 +39,6 @@ install:
   - if [ ! -f download-cache/nginx-$NGINX_VERSION.tar.gz ]; then wget -O download-cache/nginx-$NGINX_VERSION.tar.gz http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz; fi
   - if [ ! -f download-cache/openssl-$OPENSSL_VER.tar.gz ]; then wget -O download-cache/openssl-$OPENSSL_VER.tar.gz https://www.openssl.org/source/openssl-$OPENSSL_VER.tar.gz; fi
   - if [ ! -f download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz ]; then wget -O download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz http://www-us.apache.org/dist/kafka/$KAFKA_VERSION/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz; fi
-  - git clone -b develop https://github.com/brg-liuwei/ngx_kafka_module.git $NGX_KAFKA_MODULE_PATH
   - git clone https://github.com/openresty/test-nginx.git
 
 script:
@@ -63,11 +61,11 @@ script:
   - bin/kafka-server-start.sh config/server.properties > kafka.log 2>&1 &
   - sleep 3
   - bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic ngx-kafka-test-topic > create_topic.log 2>&1 || (cat cat zk.log && cat kafka.log && create_topic.log && exit 1)
-  - bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic ngx-kafka-test-topic --max-messages 1 > messages &
+  - bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic ngx-kafka-test-topic --max-messages 1 > ../messages &
   - cd ..
   - tar zxf download-cache/nginx-$NGINX_VERSION.tar.gz
   - cd nginx-$NGINX_VERSION/
-  - ./configure --prefix=$NGINX_PREFIX --with-cc-opt="-I$LIBRDKAFKA_INC" --with-ld-opt="-L$LIBRDKAFKA_LIB" --add-module=$NGX_KAFKA_MODULE_PATH > build.log 2>&1 || (cat build.log && exit 1)
+  - ./configure --prefix=$NGINX_PREFIX --with-cc-opt="-I$LIBRDKAFKA_INC" --with-ld-opt="-L$LIBRDKAFKA_LIB" --add-module=$PWD/.. > build.log 2>&1 || (cat build.log && exit 1)
   - make -j$JOBS > build.log 2>&1 || (cat build.log && exit 1)
   - sudo make install > build.log 2>&1 || (cat build.log && exit 1)
   - cd ..
