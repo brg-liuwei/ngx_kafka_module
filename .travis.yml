@@ -44,7 +44,7 @@ install:
   - if [ ! -f download-cache/nginx-$NGINX_VERSION.tar.gz ]; then wget -O download-cache/nginx-$NGINX_VERSION.tar.gz http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz; fi
   - if [ ! -f download-cache/openssl-$OPENSSL_VER.tar.gz ]; then wget -O download-cache/openssl-$OPENSSL_VER.tar.gz https://www.openssl.org/source/openssl-$OPENSSL_VER.tar.gz; fi
   - if [ ! -f download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz ]; then wget -O download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz http://www-us.apache.org/dist/kafka/$KAFKA_VERSION/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz; fi
-  - git clone https://github.com/brg-liuwei/ngx_kafka_module.git $NGX_KAFKA_MODULE_PATH
+  - git clone -b develop https://github.com/brg-liuwei/ngx_kafka_module.git $NGX_KAFKA_MODULE_PATH
   - git clone https://github.com/openresty/test-nginx.git
 
 script:
@@ -82,5 +82,5 @@ script:
   - bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic ngx-kafka-test-topic --max-messages 1 > messages &
   - prove t/002-post.t
   - sleep 1
-  - sh t/travis-ci-test-message.sh
+  - sh t/travis-ci-test-message.bash
 
