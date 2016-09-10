@@ -3,9 +3,7 @@ dist: trusty
 
 os: linux
 
-language:
-  - c
-  - java
+language: c
 
 compiler:
   - gcc

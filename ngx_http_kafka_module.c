@@ -271,7 +271,6 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
     int                          nbufs;
     u_char                      *msg;
     size_t                       len;
-    ngx_buf_t                   *buf;
     ngx_chain_t                 *cl, *in;
     ngx_http_request_body_t     *body;
     ngx_http_kafka_main_conf_t  *main_conf;
