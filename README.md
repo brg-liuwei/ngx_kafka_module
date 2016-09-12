@@ -89,7 +89,7 @@ If you compile module as a dynamic module, you must add
     
     load_module /path/to/ngx_http_kafka_module.so;
 
-before "http" directive besides adding the code to nginx config file. After that you can use the module by just executing `nginx -c /path/to/nginx.conf -s reload`.
+at the beginning of the nginx config file besides adding the code. After that you can use the module by just executing `nginx -c /path/to/nginx.conf -s reload`.
 
 
 [Back to TOC](#table-of-contents)
