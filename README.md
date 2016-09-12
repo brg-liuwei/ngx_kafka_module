@@ -48,6 +48,16 @@ Compile this module into nginx
     sudo make install
     # or, use `sudo make upgrade` instead of `sudo make install`
 
+In newer version of nginx(>=1.9.11), you can make this module as an dynamic module.
+
+    git clone https://github.com/brg-liuwei/ngx_kafka_module
+
+    # cd /path/to/nginx
+    ./configure --add-dynamic-module=/path/to/ngx_kafka_module
+
+    make modules
+    # This will generate a objs/ngx_http_kafka_module.so in your /path/to/ngx_kafka_module and you can copy the so file to a proper location.
+
 [Back to TOC](#table-of-contents)
 
 Nginx Configuration
@@ -76,6 +86,12 @@ Add the code to nginx conf file as follows
             }
         }
     }
+
+If you compile module as a dynamic module, you must add
+    
+    load_module /path/to/ngx_http_kafka_module.so;
+
+at the beginning of the nginx config file besides adding the code. After that you can use the module by just executing `nginx -c /path/to/nginx.conf -s reload`.
 
 
 [Back to TOC](#table-of-contents)
