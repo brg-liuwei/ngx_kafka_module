@@ -77,12 +77,8 @@ Add the code to nginx conf file as follows
 
             # some other configs
 
-            location = /your/path/topic0 {
-                kafka_topic your_topic0;
-            }
-
-            location = /your/path/topic1 {
-                kafka_topic your_topic1;
+            location = /your/path/topic {
+                kafka_topic your_topic;
             }
         }
     }
@@ -99,8 +95,16 @@ at the beginning of the nginx config file besides adding the code. After that yo
 Example of Usage
 ====
 
-    curl localhost/your/path/topic0 -d "message send to kafka topic0"
-    curl localhost/your/path/topic1 -d "message send to kafka topic1"
+    curl localhost/your/path/topic -d "message send to kafka topic"
+
+or you can use `-v` or `--verbose` to see http request and response for detail:
+
+    curl localhost/your/path/topic -d "hello ngx_kafka_module" -v
+
+If the message is successfully delivered, the http status code must be 204(NO CONTENT). If using `-v` or `--verbose` option of `curl`, the following line will be seen:
+
+    < HTTP/1.1 204 No Content
+
 
 [Back to TOC](#table-of-contents)
 
