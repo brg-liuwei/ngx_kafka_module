@@ -382,6 +382,12 @@ void ngx_http_kafka_exit_worker(ngx_cycle_t *cycle)
 
     main_conf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_kafka_module);
 
+    rd_kafka_poll(main_conf->rk, 0);
+
+    while (rd_kafka_outq_len(main_conf->rk) > 0) {
+        rd_kafka_poll(main_conf->rk, 100);
+    }
+
     // TODO: rd_kafka_topic_destroy(each loc conf rkt );
     rd_kafka_destroy(main_conf->rk);
 }
