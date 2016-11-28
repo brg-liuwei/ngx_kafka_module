@@ -10,8 +10,14 @@
 
 #include <librdkafka/rdkafka.h>
 
+#include <errno.h>
+
 #define KAFKA_TOPIC_MAXLEN 256
 #define KAFKA_BROKER_MAXLEN 512
+
+#define KAFKA_ERR_NO_DATA "no_message\n"
+#define KAFKA_ERR_BODY_TO_LARGE "body_too_large\n"
+#define KAFKA_ERR_PRODUCER "kafka_producer_error\n"
 
 static ngx_int_t ngx_http_kafka_init_worker(ngx_cycle_t *cycle);
 static void ngx_http_kafka_exit_worker(ngx_cycle_t *cycle);
@@ -268,22 +274,29 @@ static ngx_int_t ngx_http_kafka_handler(ngx_http_request_t *r)
 
 static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
 {
-    int                          nbufs;
-    u_char                      *msg;
-    size_t                       len;
+    int                          rc, nbufs;
+    u_char                      *msg, *err_msg;
+    size_t                       len, err_msg_size;
+    ngx_buf_t                   *buf;
+    ngx_chain_t                  out;
     ngx_chain_t                 *cl, *in;
     ngx_http_request_body_t     *body;
     ngx_http_kafka_main_conf_t  *main_conf;
     ngx_http_kafka_loc_conf_t   *local_conf;
 
+    err_msg = NULL;
+    err_msg_size = 0;
+
+    main_conf = NULL;
+
     /* get body */
     body = r->request_body;
     if (body == NULL || body->bufs == NULL) {
-        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
-        return;
+        err_msg = (u_char *)KAFKA_ERR_NO_DATA;
+        err_msg_size = sizeof(KAFKA_ERR_NO_DATA);
+        r->headers_out.status = NGX_HTTP_OK;
+        goto end;
     }
-
-    main_conf = NULL;
 
     /* calc len and bufs */
     len = 0;
@@ -296,6 +309,9 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
 
     /* get msg */
     if (nbufs == 0) {
+        err_msg = (u_char *)KAFKA_ERR_NO_DATA;
+        err_msg_size = sizeof(KAFKA_ERR_NO_DATA);
+        r->headers_out.status = NGX_HTTP_OK;
         goto end;
     }
 
@@ -312,8 +328,13 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
                 msg = ngx_copy(msg, cl->buf->pos, cl->buf->last - cl->buf->pos);
             } else {
                 /* TODO: handle buf in file */
-                ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                        "ngx_http_kafka_handler cannot handler in-file-post-buf");
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                        "ngx_http_kafka_handler cannot handle in-file-post-buf");
+
+                err_msg = (u_char *)KAFKA_ERR_BODY_TO_LARGE;
+                err_msg_size = sizeof(KAFKA_ERR_BODY_TO_LARGE);
+                r->headers_out.status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+
                 goto end;
             }
         }
@@ -340,13 +361,36 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
      *
      * Thanks for engineers of www.360buy.com report me this bug.
      * */
-    rd_kafka_produce(local_conf->rkt, RD_KAFKA_PARTITION_UA, 
+    rc = rd_kafka_produce(local_conf->rkt, RD_KAFKA_PARTITION_UA,
             RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, local_conf->log);
+    if (rc != 0) {
+        ngx_log_error(NGX_LOG_ERR, local_conf->log, 0,
+                rd_kafka_err2str(rd_kafka_errno2err(errno)));
+
+        err_msg = (u_char *)KAFKA_ERR_PRODUCER;
+        err_msg_size = sizeof(KAFKA_ERR_PRODUCER);
+        r->headers_out.status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
 
 end:
 
-    r->headers_out.status = NGX_HTTP_NO_CONTENT;
-    ngx_http_send_header(r);
+    if (err_msg != NULL) {
+        buf = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
+        out.buf = buf;
+        out.next = NULL;
+        buf->pos = err_msg;
+        buf->last = err_msg + err_msg_size - 1;
+        buf->memory = 1;
+        buf->last_buf = 1;
+
+        ngx_str_set(&(r->headers_out.content_type), "text/html");
+        ngx_http_send_header(r);
+        ngx_http_output_filter(r, &out);
+    } else {
+        r->headers_out.status = NGX_HTTP_NO_CONTENT;
+        ngx_http_send_header(r);
+    }
+
     ngx_http_finalize_request(r, NGX_OK);
 
     if (main_conf != NULL) {
