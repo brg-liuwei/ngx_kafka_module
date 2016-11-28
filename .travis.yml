@@ -73,8 +73,7 @@ script:
   - export LD_LIBRARY_PATH=$LIBRDKAFKA_LIB:$LD_LIBRARY_PATH
   - nginx -V
   - ldd `which nginx`
-  - prove t/001-get.t
-  - prove t/002-post.t
+  - prove t
   - sleep 1
   - t/travis-ci-test-message.bash
 
