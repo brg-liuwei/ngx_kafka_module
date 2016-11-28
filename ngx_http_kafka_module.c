@@ -57,7 +57,6 @@ static char *ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
         ngx_str_t *broker);
 
 typedef struct {
-    ngx_log_t  *log;
     ngx_str_t   topic;     /* kafka topic */
     ngx_str_t   broker;    /* broker addr (eg: localhost:9092) */
 
@@ -188,7 +187,6 @@ void *ngx_http_kafka_create_loc_conf(ngx_conf_t *cf)
         return NGX_CONF_ERROR;
     }
 
-    conf->log = NGX_CONF_UNSET_PTR;
     ngx_str_null(&conf->topic);
     ngx_str_null(&conf->broker);
 
@@ -206,8 +204,6 @@ char *ngx_http_kafka_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     ngx_http_kafka_loc_conf_t *prev = parent;
     ngx_http_kafka_loc_conf_t *conf = child;
-
-    ngx_conf_merge_ptr_value(conf->log, prev->log, NULL);
 
 #define ngx_conf_merge_kafka_partition_conf(conf, prev, def) \
     if (conf == KAFKA_PARTITION_UNSET) { \
@@ -362,6 +358,7 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
     int                          rc, nbufs;
     u_char                      *msg, *err_msg;
     size_t                       len, err_msg_size;
+    ngx_log_t                   *conn_log;
     ngx_buf_t                   *buf;
     ngx_chain_t                  out;
     ngx_chain_t                 *cl, *in;
@@ -453,10 +450,11 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
      * Thanks for engineers of www.360buy.com report me this bug.
      *
      * */
+    conn_log = r->connection->log;
     rc = rd_kafka_produce(local_conf->rkt, (int32_t)local_conf->partition,
-            RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, local_conf->log);
+            RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, conn_log);
     if (rc != 0) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+        ngx_log_error(NGX_LOG_ERR, conn_log, 0,
                 rd_kafka_err2str(rd_kafka_errno2err(errno)));
 
         err_msg = (u_char *)KAFKA_ERR_PRODUCER;
