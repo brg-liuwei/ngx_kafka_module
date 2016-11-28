@@ -78,6 +78,12 @@ Add the code to nginx conf file as follows
             # some other configs
 
             location = /your/path/topic {
+                # optional directive: kafka_partition [<partition-num> | auto]
+                #
+                # kafka_partition auto; # default value
+                # kafka_partition 0;
+                # kafka_partition 1;
+
                 kafka_topic your_topic;
             }
         }

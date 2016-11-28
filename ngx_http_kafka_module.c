@@ -19,15 +19,24 @@
 #define KAFKA_ERR_BODY_TO_LARGE "body_too_large\n"
 #define KAFKA_ERR_PRODUCER "kafka_producer_error\n"
 
+#define KAFKA_PARTITION_UNSET 0xFFFFFFFF
+
 static ngx_int_t ngx_http_kafka_init_worker(ngx_cycle_t *cycle);
 static void ngx_http_kafka_exit_worker(ngx_cycle_t *cycle);
 
 static void *ngx_http_kafka_create_main_conf(ngx_conf_t *cf);
 static void *ngx_http_kafka_create_loc_conf(ngx_conf_t *cf);
+static char *ngx_http_kafka_merge_loc_conf(ngx_conf_t *cf,
+        void *parent, void *child);
 static char *ngx_http_set_kafka(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static char *ngx_http_set_kafka_topic(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static char *ngx_http_set_kafka_broker(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf,
+        ngx_command_t *cmd, void *conf);
+static char *ngx_http_set_kafka_topic(ngx_conf_t *cf,
+        ngx_command_t *cmd, void *conf);
+static char *ngx_http_set_kafka_partition(ngx_conf_t *cf,
+        ngx_command_t *cmd, void *conf);
+static char *ngx_http_set_kafka_broker(ngx_conf_t *cf,
+        ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_http_kafka_handler(ngx_http_request_t *r);
 static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r);
 
@@ -48,9 +57,11 @@ static char *ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
         ngx_str_t *broker);
 
 typedef struct {
-    ngx_log_t  *log;
-    ngx_str_t   topic;    /* kafka topic */
-    ngx_str_t   broker;   /* broker addr (eg: localhost:9092) */
+    ngx_str_t   topic;     /* kafka topic */
+    ngx_str_t   broker;    /* broker addr (eg: localhost:9092) */
+
+    /* kafka partition(0...N), default value: RD_KAFKA_PARTITION_UA */
+    ngx_int_t   partition;
 
     rd_kafka_topic_t       *rkt;
     rd_kafka_topic_conf_t  *rktc;
@@ -80,6 +91,13 @@ static ngx_command_t ngx_http_kafka_commands[] = {
         offsetof(ngx_http_kafka_loc_conf_t, topic),
         NULL },
     {
+        ngx_string("kafka_partition"),
+        NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+        ngx_http_set_kafka_partition,
+        NGX_HTTP_LOC_CONF_OFFSET,
+        offsetof(ngx_http_kafka_loc_conf_t, partition),
+        NULL },
+    {
         ngx_string("kafka_broker"),
         NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
         ngx_http_set_kafka_broker,
@@ -89,49 +107,41 @@ static ngx_command_t ngx_http_kafka_commands[] = {
     ngx_null_command
 };
 
+
 static ngx_http_module_t ngx_http_kafka_module_ctx = {
-    NULL,      /* pre conf */
-    NULL,      /* post conf */
+    NULL,                             /* pre conf */
+    NULL,                             /* post conf */
 
-    /* create main conf */
-    ngx_http_kafka_create_main_conf,
-    NULL,      /* init main conf */
+    ngx_http_kafka_create_main_conf,  /* create main conf */
+    NULL,                             /* init main conf */
 
-    NULL,      /* create server conf */
-    NULL,      /* init server conf */
+    NULL,                             /* create server conf */
+    NULL,                             /* merge server conf */
 
-    /* create local conf */
-    ngx_http_kafka_create_loc_conf,
-    NULL,      /* merge location conf */
+    ngx_http_kafka_create_loc_conf,   /* create local conf */
+    ngx_http_kafka_merge_loc_conf,    /* merge location conf */
 };
+
 
 ngx_module_t ngx_http_kafka_module = {
     NGX_MODULE_V1,
-    &ngx_http_kafka_module_ctx, /* module context */
-    ngx_http_kafka_commands,    /* module directives */
-    NGX_HTTP_MODULE,            /* module type */
+    &ngx_http_kafka_module_ctx,   /* module context */
+    ngx_http_kafka_commands,      /* module directives */
+    NGX_HTTP_MODULE,              /* module type */
 
-    NULL,          /* init master */
-    NULL,          /* init module */
+    NULL,                         /* init master */
+    NULL,                         /* init module */
+
     ngx_http_kafka_init_worker,   /* init process */
-    NULL,          /* init thread */
-    NULL,          /* exit thread */
+    NULL,                         /* init thread */
+
+    NULL,                         /* exit thread */
     ngx_http_kafka_exit_worker,   /* exit process */
-    NULL,          /* exit master */
+    NULL,                         /* exit master */
 
     NGX_MODULE_V1_PADDING
 };
 
-ngx_int_t ngx_str_equal(ngx_str_t *s1, ngx_str_t *s2)
-{
-    if (s1->len != s2->len) {
-        return 0;
-    }
-    if (ngx_memcmp(s1->data, s2->data, s1->len) != 0) {
-        return 0;
-    }
-    return 1;
-}
 
 char *ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
         ngx_str_t *broker)
@@ -146,6 +156,7 @@ char *ngx_http_kafka_main_conf_broker_add(ngx_http_kafka_main_conf_t *cf,
     *new_broker = *broker;
     return NGX_OK;
 }
+
 
 void *ngx_http_kafka_create_main_conf(ngx_conf_t *cf)
 {
@@ -166,6 +177,7 @@ void *ngx_http_kafka_create_main_conf(ngx_conf_t *cf)
     return conf;
 }
 
+
 void *ngx_http_kafka_create_loc_conf(ngx_conf_t *cf)
 {
     ngx_http_kafka_loc_conf_t  *conf;
@@ -174,19 +186,47 @@ void *ngx_http_kafka_create_loc_conf(ngx_conf_t *cf)
     if (conf == NULL) {
         return NGX_CONF_ERROR;
     }
-    conf->log = cf->log;
+
     ngx_str_null(&conf->topic);
     ngx_str_null(&conf->broker);
+
+    /*
+     * Could not set conf->partition RD_KAFKA_PARTITION_UA, 
+     * because both values of RD_KAFKA_PARTITION_UA and NGX_CONF_UNSET is -1
+     */
+    conf->partition = KAFKA_PARTITION_UNSET;
 
     return conf;
 }
 
-void kafka_callback_handler(rd_kafka_t *rk, void *msg, size_t len, int err, void *opaque, void *msg_opaque)
+
+char *ngx_http_kafka_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+    ngx_http_kafka_loc_conf_t *prev = parent;
+    ngx_http_kafka_loc_conf_t *conf = child;
+
+#define ngx_conf_merge_kafka_partition_conf(conf, prev, def) \
+    if (conf == KAFKA_PARTITION_UNSET) { \
+        conf = (prev == KAFKA_PARTITION_UNSET) ? def : prev; \
+    }
+
+    ngx_conf_merge_kafka_partition_conf(conf->partition, prev->partition,
+            RD_KAFKA_PARTITION_UA);
+
+#undef ngx_conf_merge_kafka_partition_conf
+
+    return NGX_CONF_OK;
+}
+
+void kafka_callback_handler(rd_kafka_t *rk,
+        void *msg, size_t len, int err, void *opaque, void *msg_opaque)
 {
     if (err != 0) {
-        ngx_log_error(NGX_LOG_ERR, (ngx_log_t *)msg_opaque, 0, rd_kafka_err2str(err));
+        ngx_log_error(NGX_LOG_ERR,
+                (ngx_log_t *)msg_opaque, 0, rd_kafka_err2str(err));
     }
 }
+
 
 char *ngx_http_set_kafka(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -194,8 +234,11 @@ char *ngx_http_set_kafka(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
-char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+
+char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf,
+        ngx_command_t *cmd, void *conf)
 {
+    char       *cf_result;
     ngx_uint_t  i;
     ngx_str_t  *value;
 
@@ -205,16 +248,19 @@ char *ngx_http_set_kafka_broker_list(ngx_conf_t *cf, ngx_command_t *cmd, void *c
     value = cf->args->elts;
 
     for (i = 1; i < cf->args->nelts; ++i) {
-        if (ngx_http_kafka_main_conf_broker_add(main_conf, &value[i]) == NGX_CONF_ERROR) {
-            return NGX_CONF_ERROR;
+        cf_result = ngx_http_kafka_main_conf_broker_add(main_conf, &value[i]);
+        if (cf_result != NGX_OK) {
+            return cf_result;
         }
     }
 
     return NGX_OK;
 }
 
+
 char *ngx_http_set_kafka_topic(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
+    char                       *cf_result;
     ngx_http_core_loc_conf_t   *clcf;
     ngx_http_kafka_loc_conf_t  *local_conf;
 
@@ -226,8 +272,9 @@ char *ngx_http_set_kafka_topic(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     clcf->handler = ngx_http_kafka_handler;
 
     /* ngx_http_kafka_loc_conf_t::topic assignment */
-    if (ngx_conf_set_str_slot(cf, cmd, conf) != NGX_CONF_OK) {
-        return NGX_CONF_ERROR;
+    cf_result = ngx_conf_set_str_slot(cf, cmd, conf);
+    if (cf_result != NGX_CONF_OK) {
+        return cf_result;
     }
 
     local_conf = conf;
@@ -237,14 +284,46 @@ char *ngx_http_set_kafka_topic(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return NGX_CONF_OK;
 }
 
+
+char *ngx_http_set_kafka_partition(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    char  *p = conf;
+
+    ngx_int_t        *np; 
+    ngx_str_t        *value;
+
+
+    np = (ngx_int_t *)(p + cmd->offset);
+
+    if (*np != KAFKA_PARTITION_UNSET) {
+        return "is duplicate";
+    }    
+
+    value = cf->args->elts;
+
+    if (ngx_strncmp("auto", (const char *)value[1].data, value[1].len) == 0) {
+        *np = RD_KAFKA_PARTITION_UA;
+    } else {
+        *np = ngx_atoi(value[1].data, value[1].len);
+        if (*np == NGX_ERROR) {
+            return "invalid number";
+        }
+    }
+
+    return NGX_CONF_OK;
+}
+
+
 char *ngx_http_set_kafka_broker(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
+    char                       *cf_result;
     ngx_http_kafka_loc_conf_t  *local_conf;
     ngx_http_kafka_main_conf_t *main_conf;
 
     /* ngx_http_kafka_loc_conf_t::broker assignment */
-    if (ngx_conf_set_str_slot(cf, cmd, conf) != NGX_CONF_OK) {
-        return NGX_CONF_ERROR;
+    cf_result = ngx_conf_set_str_slot(cf, cmd, conf);
+    if (cf_result != NGX_CONF_OK) {
+        return cf_result;
     }
 
     local_conf = conf;
@@ -255,6 +334,7 @@ char *ngx_http_set_kafka_broker(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
     return ngx_http_kafka_main_conf_broker_add(main_conf, &local_conf->broker);
 }
+
 
 static ngx_int_t ngx_http_kafka_handler(ngx_http_request_t *r)
 {
@@ -272,11 +352,13 @@ static ngx_int_t ngx_http_kafka_handler(ngx_http_request_t *r)
     return NGX_DONE;
 }
 
+
 static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
 {
     int                          rc, nbufs;
     u_char                      *msg, *err_msg;
     size_t                       len, err_msg_size;
+    ngx_log_t                   *conn_log;
     ngx_buf_t                   *buf;
     ngx_chain_t                  out;
     ngx_chain_t                 *cl, *in;
@@ -316,8 +398,11 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
     }
 
     if (nbufs == 1 && ngx_buf_in_memory(in->buf)) {
+
         msg = in->buf->pos;
+
     } else {
+
         if ((msg = ngx_pnalloc(r->pool, len)) == NULL) {
             ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
             return;
@@ -339,6 +424,7 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
             }
         }
         msg -= len;
+
     }
 
     /* send to kafka */
@@ -353,18 +439,22 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
 
     /*
      * the last param should NOT be r->connection->log, for reason that
-     * the callback handler ( func: kafka_callback_handler) would be called ASYNC-ly
-     * when some errors being happened. At this time, 
-     * ngx_http_finalize_request may have been invoked, in this case, the object r
-     * had been destroyed but kafka_callback_handler use pointer r->connection->log.
-     * DUANG! Worker process CRASH!
+     * the callback handler (func: kafka_callback_handler) would be called 
+     * asynchronously when some errors being happened.
+     *
+     * At this time, ngx_http_finalize_request may have been invoked.
+     * In this case, the object r had been destroyed
+     * but kafka_callback_handler use the pointer
+     * r->connection->log! Worker processes CRASH!
      *
      * Thanks for engineers of www.360buy.com report me this bug.
+     *
      * */
-    rc = rd_kafka_produce(local_conf->rkt, RD_KAFKA_PARTITION_UA,
-            RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, local_conf->log);
+    conn_log = r->connection->log;
+    rc = rd_kafka_produce(local_conf->rkt, (int32_t)local_conf->partition,
+            RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, conn_log);
     if (rc != 0) {
-        ngx_log_error(NGX_LOG_ERR, local_conf->log, 0,
+        ngx_log_error(NGX_LOG_ERR, conn_log, 0,
                 rd_kafka_err2str(rd_kafka_errno2err(errno)));
 
         err_msg = (u_char *)KAFKA_ERR_PRODUCER;
@@ -398,13 +488,15 @@ end:
     }
 }
 
+
 ngx_int_t ngx_http_kafka_init_worker(ngx_cycle_t *cycle)
 {
     ngx_uint_t                   n;
     ngx_str_t                   *broker_list;
     ngx_http_kafka_main_conf_t  *main_conf;
 
-    main_conf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_kafka_module);
+    main_conf = ngx_http_cycle_get_module_main_conf(cycle,
+            ngx_http_kafka_module);
     main_conf->rkc = rd_kafka_conf_new();
     rd_kafka_conf_set_dr_cb(main_conf->rkc, kafka_callback_handler);
     main_conf->rk = rd_kafka_new(RD_KAFKA_PRODUCER, main_conf->rkc, NULL, 0);
@@ -420,11 +512,13 @@ ngx_int_t ngx_http_kafka_init_worker(ngx_cycle_t *cycle)
     return 0;
 }
 
+
 void ngx_http_kafka_exit_worker(ngx_cycle_t *cycle)
 {
     ngx_http_kafka_main_conf_t  *main_conf;
 
-    main_conf = ngx_http_cycle_get_module_main_conf(cycle, ngx_http_kafka_module);
+    main_conf = ngx_http_cycle_get_module_main_conf(cycle,
+            ngx_http_kafka_module);
 
     rd_kafka_poll(main_conf->rk, 0);
 
@@ -432,9 +526,10 @@ void ngx_http_kafka_exit_worker(ngx_cycle_t *cycle)
         rd_kafka_poll(main_conf->rk, 100);
     }
 
-    // TODO: rd_kafka_topic_destroy(each loc conf rkt );
+    // TODO: rd_kafka_topic_destroy(each loc conf rkt);
     rd_kafka_destroy(main_conf->rk);
 }
+
 
 void ngx_str_helper(ngx_str_t *str, ngx_str_op op)
 {
