@@ -35,7 +35,7 @@ before_install:
 install:
   - if [ ! -d /opt ]; then mkdir /opt; fi
   - if [ ! -d download-cache ]; then mkdir download-cache; fi
-  - if [ ! -d download-cache/librdkafka ]; then git clone -b 0.9.0 https://github.com/edenhill/librdkafka.git download-cache/librdkafka; fi
+  - if [ ! -d download-cache/librdkafka ]; then git clone -b v0.11.0 https://github.com/edenhill/librdkafka.git download-cache/librdkafka; fi
   - if [ ! -f download-cache/nginx-$NGINX_VERSION.tar.gz ]; then wget -O download-cache/nginx-$NGINX_VERSION.tar.gz http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz; fi
   - if [ ! -f download-cache/openssl-$OPENSSL_VER.tar.gz ]; then wget -O download-cache/openssl-$OPENSSL_VER.tar.gz https://www.openssl.org/source/openssl-$OPENSSL_VER.tar.gz; fi
   - if [ ! -f download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz ]; then wget -O download-cache/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz http://www-us.apache.org/dist/kafka/$KAFKA_VERSION/kafka_$SCALA_VERSION-$KAFKA_VERSION.tgz; fi

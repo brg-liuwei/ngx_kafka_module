@@ -10,8 +10,6 @@
 
 #include <librdkafka/rdkafka.h>
 
-#include <errno.h>
-
 #define KAFKA_TOPIC_MAXLEN 256
 #define KAFKA_BROKER_MAXLEN 512
 
@@ -455,7 +453,7 @@ static void ngx_http_kafka_post_callback_handler(ngx_http_request_t *r)
             RD_KAFKA_MSG_F_COPY, (void *)msg, len, NULL, 0, conn_log);
     if (rc != 0) {
         ngx_log_error(NGX_LOG_ERR, conn_log, 0,
-                rd_kafka_err2str(rd_kafka_errno2err(errno)));
+                rd_kafka_err2str(rd_kafka_last_error()));
 
         err_msg = (u_char *)KAFKA_ERR_PRODUCER;
         err_msg_size = sizeof(KAFKA_ERR_PRODUCER);
